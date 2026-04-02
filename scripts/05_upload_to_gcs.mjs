@@ -32,7 +32,7 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = path.resolve(__dirname, '..', 'data');
 
 // TODO: Update this to your bucket name
-const BUCKET_NAME = 'musa5090-s26-yourname-data';
+const BUCKET_NAME = 'geocloud-assignment-03-yourname-data';
 
 /**
  * Upload prepared hourly data to GCS with hive-partitioned folder structure.

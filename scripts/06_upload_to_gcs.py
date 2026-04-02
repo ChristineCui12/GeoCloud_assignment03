@@ -13,12 +13,17 @@
 """
 
 import pathlib
+from google.cloud import storage
 
 
 DATA_DIR = pathlib.Path(__file__).parent.parent / 'data'
+BUCKET_NAME = 'geocloud-assignment-03-christinecui-data'
 
-# TODO: Update this to your bucket name
-BUCKET_NAME = 'musa5090-s26-yourname-data'
+FORMAT_DIRS = {
+    '.csv':         'csv',
+    '.jsonl':       'jsonl',
+    '.geoparquet':  'geoparquet',
+}
 
 
 def upload_merged_data():
@@ -29,7 +34,33 @@ def upload_merged_data():
         gs://<bucket>/air_quality/hourly_with_sites/jsonl/airnow_date=2024-07-01/data.jsonl
         gs://<bucket>/air_quality/hourly_with_sites/geoparquet/airnow_date=2024-07-01/data.geoparquet
     """
-    raise NotImplementedError("Implement this function to upload merged data to GCS.")
+    client = storage.Client()
+    bucket = client.bucket(BUCKET_NAME)
+
+    merged_dir = DATA_DIR / 'prepared' / 'hourly_with_sites'
+    uploaded = 0
+
+    for file_path in sorted(merged_dir.iterdir()):
+        if not file_path.is_file():
+            continue
+        suffix = file_path.suffix
+        if suffix not in FORMAT_DIRS:
+            continue
+
+        date_str = file_path.stem
+        fmt_dir = FORMAT_DIRS[suffix]
+        data_filename = f'data{suffix}'
+
+        blob_name = (
+            f'air_quality/hourly_with_sites/{fmt_dir}/'
+            f'airnow_date={date_str}/{data_filename}'
+        )
+        blob = bucket.blob(blob_name)
+        blob.upload_from_filename(str(file_path))
+        print(f'  Uploaded {blob_name}')
+        uploaded += 1
+
+    print(f'Uploaded {uploaded} merged files with hive partitioning.')
 
 
 if __name__ == '__main__':

@@ -12,10 +12,6 @@
     (airnow_date) and use it for query pruning, so queries filtering
     by date only scan the relevant files.
 
-    This is a backfill of the upload step — you don't need to re-download
-    or re-transform anything. You're just re-uploading the same files
-    with a different folder structure.
-
     Prerequisites:
         - Run `gcloud auth application-default login` to authenticate.
         - Parts 1-3 should be complete (data already prepared and uploaded once).
@@ -25,12 +21,18 @@
 """
 
 import pathlib
+from google.cloud import storage
 
 
 DATA_DIR = pathlib.Path(__file__).parent.parent / 'data'
+BUCKET_NAME = 'geocloud-assignment-03-christinecui-data'
 
-# TODO: Update this to your bucket name
-BUCKET_NAME = 'musa5090-s26-yourname-data'
+# Map file extension to GCS subfolder name
+FORMAT_DIRS = {
+    '.csv':     'csv',
+    '.jsonl':   'jsonl',
+    '.parquet': 'parquet',
+}
 
 
 def upload_with_hive_partitioning():
@@ -41,11 +43,34 @@ def upload_with_hive_partitioning():
         gs://<bucket>/air_quality/hourly/csv/airnow_date=2024-07-01/data.csv
         gs://<bucket>/air_quality/hourly/jsonl/airnow_date=2024-07-01/data.jsonl
         gs://<bucket>/air_quality/hourly/parquet/airnow_date=2024-07-01/data.parquet
-
-    The site locations files don't need hive partitioning (they're not
-    date-partitioned), so you can re-upload them as-is or skip them.
     """
-    raise NotImplementedError("Implement this function to upload with hive partitioning.")
+    client = storage.Client()
+    bucket = client.bucket(BUCKET_NAME)
+
+    hourly_dir = DATA_DIR / 'prepared' / 'hourly'
+    uploaded = 0
+
+    for file_path in sorted(hourly_dir.iterdir()):
+        if not file_path.is_file():
+            continue
+        suffix = file_path.suffix
+        if suffix not in FORMAT_DIRS:
+            continue
+
+        date_str = file_path.stem          # e.g. '2024-07-01'
+        fmt_dir = FORMAT_DIRS[suffix]      # e.g. 'csv'
+        data_filename = f'data{suffix}'    # e.g. 'data.csv'
+
+        blob_name = (
+            f'air_quality/hourly/{fmt_dir}/'
+            f'airnow_date={date_str}/{data_filename}'
+        )
+        blob = bucket.blob(blob_name)
+        blob.upload_from_filename(str(file_path))
+        print(f'  Uploaded {blob_name}')
+        uploaded += 1
+
+    print(f'Uploaded {uploaded} files with hive partitioning.')
 
 
 if __name__ == '__main__':
